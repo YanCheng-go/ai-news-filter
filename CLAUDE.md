@@ -48,6 +48,10 @@ Pipeline: **ingest -> dedup -> store -> score -> serve**.
 
 All settings via env vars prefixed `AINEWS_` (e.g., `AINEWS_OLLAMA_MODEL=qwen3:4b`). See `src/ainews/config.py` for defaults.
 
+## Documentation Rules
+
+- When editing any documentation file (`.md`), always update the `*Last updated: YYYY-MM-DD*` line at the bottom with today's date.
+
 ## Planned Features (not yet built)
 
 - Phone screenshot monitoring (watch synced folder, vision LLM extraction)
