@@ -168,8 +168,15 @@ def dashboard(
 ):
     conn = get_db(settings.db_path)
     offset = (page - 1) * PER_PAGE
+    # Hide changelog-only sources from the main feed unless explicitly searched/filtered
+    exclude = None if search or tag else ["Claude Code Releases"]
     filter_kwargs = dict(
-        source_type=source_type, tier=tier, tag=tag, min_score=min_score, search=search
+        source_type=source_type,
+        tier=tier,
+        tag=tag,
+        min_score=min_score,
+        search=search,
+        exclude_sources=exclude,
     )
     items = get_items(conn, limit=PER_PAGE, offset=offset, order_by=order_by, **filter_kwargs)
     total = count_items(conn, **filter_kwargs)
