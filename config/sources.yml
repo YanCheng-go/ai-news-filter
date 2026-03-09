@@ -14,8 +14,11 @@ sources:
     tags: [ai, research, deep-learning]
   - handle: "bcherny"
     tags: [ai, engineering]
-  - handle: "simonw"
-    tags: [ai, tooling, open-source]
+  - handle: simonw
+    tags:
+    - ai
+    - tooling
+    - open-source
 
   # === YouTube ===
   # Native RSS — no RSSHub needed.
