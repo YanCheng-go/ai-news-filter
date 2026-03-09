@@ -97,11 +97,6 @@ sources:
     name: "METR"
     tags: [ai, safety, evals, research]
 
-    # --- Leaderboards / benchmarks ---
-  - url: "https://arena.ai/blog/rss/"
-    name: "Arena (Chatbot Arena)"
-    tags: [ai, leaderboard, benchmarks, evals]
-
     # --- Practitioners ---
   - url: "https://simonwillison.net/atom/everything/"
     name: "Simon Willison"
@@ -130,10 +125,26 @@ sources:
     source_type: "rss"
     tags: [ai, research, cohere, company]
     # Note: Mistral AI has no RSS feed and no working RSSHub route.
-  - route: "/huggingface/daily-papers"
-    name: "HuggingFace Daily Papers"
-    source_type: "rss"
-    tags: [ai, research, papers, leaderboard]
+
+  # === Leaderboards ===
+  # These are interactive pages without RSS feeds.
+  # TODO: build a scraper/snapshot module to detect ranking changes.
+  leaderboard:
+  - url: "https://arena.ai/leaderboard"
+    name: "Arena (Chatbot Arena)"
+    tags: [ai, leaderboard, benchmarks, evals]
+  - url: "https://huggingface.co/spaces/open-llm-leaderboard/open_llm_leaderboard"
+    name: "HuggingFace Open LLM Leaderboard"
+    tags: [ai, leaderboard, benchmarks, open-source]
+  - url: "https://artificialanalysis.ai"
+    name: "Artificial Analysis"
+    tags: [ai, leaderboard, benchmarks, pricing]
+  - url: "https://livebench.ai"
+    name: "LiveBench"
+    tags: [ai, leaderboard, benchmarks, evals]
+  - url: "https://scale.com/leaderboard"
+    name: "Scale AI SEAL Leaderboards"
+    tags: [ai, leaderboard, benchmarks, enterprise]
 
   # === Events (Luma) ===
   # Route: /luma/:handle
