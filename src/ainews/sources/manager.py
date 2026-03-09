@@ -18,9 +18,6 @@ SOURCE_FIELDS = {
     "arxiv_queries": {"required": ["query", "name"], "optional": ["tags"]},
 }
 
-# All source types live under the top-level `sources` key in sources.yml
-NESTED_TYPES = set(SOURCE_FIELDS)
-
 yaml = YAML()
 yaml.preserve_quotes = True
 
@@ -123,7 +120,7 @@ def get_all_sources_flat(config_dir: Path) -> list[dict]:
     result = []
 
     sources = data.get("sources", {})
-    for stype in NESTED_TYPES:
+    for stype in SOURCE_FIELDS:
         for i, entry in enumerate(sources.get(stype, []) or []):
             result.append(
                 {
