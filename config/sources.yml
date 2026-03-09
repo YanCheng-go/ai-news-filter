@@ -14,6 +14,8 @@ sources:
     tags: [ai, research, deep-learning]
   - handle: "bcherny"
     tags: [ai, engineering]
+  - handle: "simonw"
+    tags: [ai, tooling, open-source]
 
   # === YouTube ===
   # Native RSS — no RSSHub needed.
@@ -98,9 +100,6 @@ sources:
     tags: [ai, safety, evals, research]
 
     # --- Practitioners ---
-  - url: "https://simonwillison.net/atom/everything/"
-    name: "Simon Willison"
-    tags: [ai, tooling, open-source]
   - url: "https://lilianweng.github.io/index.xml"
     name: "Lilian Weng"
     tags: [ai, research, deep-learning]
