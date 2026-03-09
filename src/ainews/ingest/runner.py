@@ -68,12 +68,21 @@ async def fetch_single_source(
     # Check GitHub trending
     trending_config = sources_config.get("sources", {}).get("github_trending", {})
     if trending_config and "github" in source_name.lower() and "trend" in source_name.lower():
-        from ainews.ingest.github_trending import fetch_github_trending
+        from ainews.ingest.github_trending import (
+            fetch_github_trending,
+            fetch_github_trending_history,
+        )
 
         tags = trending_config.get("tags", ["github", "trending", "open-source"])
+        total_fetched = 0
+        total_new = 0
         items = await fetch_github_trending(tags=tags)
-        new_count = ingest_items(conn, "GitHub Trending", items)
-        return {"items_fetched": len(items), "new_items": new_count}
+        total_fetched += len(items)
+        total_new += ingest_items(conn, "GitHub Trending", items)
+        history_items = await fetch_github_trending_history(tags=tags)
+        total_fetched += len(history_items)
+        total_new += ingest_items(conn, "GitHub Trending History", history_items)
+        return {"items_fetched": total_fetched, "new_items": total_new}
 
     # Check all feed sources
     feeds = build_feed_urls(sources_config)

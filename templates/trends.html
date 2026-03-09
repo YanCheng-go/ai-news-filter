@@ -13,7 +13,11 @@
         .nav { display: flex; gap: 16px; align-items: center; }
         .nav a { color: #7cb8ff; text-decoration: none; font-size: 0.85rem; }
         .nav a.active { color: #f0abfc; }
-        .subtitle { font-size: 0.85rem; color: #666; margin-bottom: 24px; }
+        .subtitle { font-size: 0.85rem; color: #666; margin-bottom: 16px; }
+        .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+        .filter-link { color: #888; text-decoration: none; padding: 4px 12px; border: 1px solid #222; border-radius: 4px; font-size: 0.8rem; transition: all 0.2s; }
+        .filter-link:hover { border-color: #555; color: #ccc; }
+        .filter-link.active { background: #1a1a2e; border-color: #818cf8; color: #818cf8; }
         .status-bar { font-size: 0.8rem; color: #555; margin-bottom: 16px; }
         .item { background: #111; border: 1px solid #1a1a1a; border-radius: 8px; padding: 16px; margin-bottom: 12px; transition: border-color 0.2s; }
         .item:hover { border-color: #333; }
@@ -23,6 +27,7 @@
         .item-meta { margin-top: 8px; font-size: 0.8rem; color: #666; display: flex; gap: 8px; flex-wrap: wrap; }
         .tag { background: #1a1a2e; color: #818cf8; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; }
         .item-summary { margin-top: 8px; font-size: 0.85rem; color: #999; line-height: 1.5; }
+        .empty { font-size: 0.85rem; color: #555; padding: 12px 0; }
         .pagination { display: flex; gap: 8px; justify-content: center; margin-top: 24px; }
         .pagination a { color: #7cb8ff; text-decoration: none; padding: 4px 12px; border: 1px solid #333; border-radius: 4px; }
         .pagination a:hover { border-color: #7cb8ff; }
@@ -42,10 +47,16 @@
                 <a href="/ccc">CCC</a>
             </div>
         </div>
-        <div class="subtitle">GitHub Trending — top repos by engagement score from <a href="https://trendshift.io" target="_blank" rel="noopener" style="color:#7cb8ff">trendshift.io</a>, updated daily.</div>
+        <div class="subtitle">GitHub Trending — top repos from <a href="https://trendshift.io" target="_blank" rel="noopener" style="color:#7cb8ff">trendshift.io</a>.</div>
+
+        <div class="filters">
+            <a href="/trends?tab=daily" class="filter-link {% if tab == 'daily' %}active{% endif %}">Daily Trending</a>
+            <a href="/trends?tab=history" class="filter-link {% if tab == 'history' %}active{% endif %}">Trending History</a>
+        </div>
 
         <div class="status-bar">{{ total }} repos &middot; Page {{ page }} of {{ total_pages }}</div>
 
+        {% if items %}
         {% for item in items %}
         <div class="item">
             <div class="item-title">
@@ -64,14 +75,17 @@
             {% endif %}
         </div>
         {% endfor %}
+        {% else %}
+        <div class="empty">No trending repos found.</div>
+        {% endif %}
 
         {% if total_pages > 1 %}
         <div class="pagination">
-            {% if page > 1 %}<a href="/trends?page={{ page - 1 }}">&laquo; Prev</a>{% endif %}
+            {% if page > 1 %}<a href="/trends?tab={{ tab }}&page={{ page - 1 }}">&laquo; Prev</a>{% endif %}
             {% for p in range(1, total_pages + 1) %}
-            <a href="/trends?page={{ p }}" {% if p == page %}class="current"{% endif %}>{{ p }}</a>
+            <a href="/trends?tab={{ tab }}&page={{ p }}" {% if p == page %}class="current"{% endif %}>{{ p }}</a>
             {% endfor %}
-            {% if page < total_pages %}<a href="/trends?page={{ page + 1 }}">Next &raquo;</a>{% endif %}
+            {% if page < total_pages %}<a href="/trends?tab={{ tab }}&page={{ page + 1 }}">Next &raquo;</a>{% endif %}
         </div>
         {% endif %}
     </div>
