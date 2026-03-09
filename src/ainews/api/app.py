@@ -169,7 +169,7 @@ def api_badge_counts(since: str | None = None):
     trends_count = count_items(conn, since=since_dt, source_type="github_trending") + count_items(
         conn, since=since_dt, source_type="github_trending_history"
     )
-    ccc_count = count_items(conn, since=since_dt, search="Claude Code Releases")
+    ccc_count = count_items(conn, since=since_dt, source_name="Claude Code Releases")
     conn.close()
     return {"dashboard": dashboard_count, "trends": trends_count, "ccc": ccc_count}
 
