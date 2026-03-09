@@ -72,25 +72,15 @@ def _store_hash(conn: sqlite3.Connection, hash_val: str):
     )
 
 
-def sync_source_metadata(
+def _apply_metadata_updates(
     conn: sqlite3.Connection,
-    sources_config: dict,
-    config_dir: Path | None = None,
+    source_map: dict[str, dict],
+    dry_run: bool = False,
 ) -> int:
-    """Re-sync tags and source_type from config to existing DB items.
+    """Compare DB items against source_map and update stale tags/source_type.
 
-    Called automatically during ingestion. Skips if sources.yml hasn't changed.
-    Returns number of updated items.
+    Returns number of items that changed (or would change in dry_run mode).
     """
-    # Skip if sources.yml hasn't changed since last sync
-    if config_dir:
-        current_hash = _hash_sources_file(config_dir)
-        stored_hash = _get_stored_hash(conn)
-        if current_hash == stored_hash:
-            return 0
-
-    source_map = _build_source_map(sources_config)
-
     rows = conn.execute("SELECT id, source_name, source_type, tags FROM items").fetchall()
 
     updated = 0
@@ -112,37 +102,60 @@ def sync_source_metadata(
         if not tags_changed and not type_changed:
             continue
 
-        # Update tags
-        if tags_changed:
-            conn.execute(
-                "UPDATE items SET tags = ? WHERE id = ?",
-                (json.dumps(new_tags), item_id),
-            )
-            conn.execute("DELETE FROM item_tags WHERE item_id = ?", (item_id,))
-            if new_tags:
-                conn.executemany(
-                    "INSERT OR IGNORE INTO item_tags (item_id, tag) VALUES (?, ?)",
-                    [(item_id, tag) for tag in new_tags],
+        if dry_run:
+            changes = []
+            if tags_changed:
+                changes.append(f"tags: {old_tags} -> {new_tags}")
+            if type_changed:
+                changes.append(f"type: {old_type} -> {new_type}")
+            print(f"  {source_name}: {', '.join(changes)}")
+        else:
+            if tags_changed:
+                conn.execute(
+                    "UPDATE items SET tags = ? WHERE id = ?",
+                    (json.dumps(new_tags), item_id),
                 )
-
-        # Update source_type
-        if type_changed:
-            conn.execute(
-                "UPDATE items SET source_type = ? WHERE id = ?",
-                (new_type, item_id),
-            )
-
+                conn.execute("DELETE FROM item_tags WHERE item_id = ?", (item_id,))
+                if new_tags:
+                    conn.executemany(
+                        "INSERT OR IGNORE INTO item_tags (item_id, tag) VALUES (?, ?)",
+                        [(item_id, tag) for tag in new_tags],
+                    )
+            if type_changed:
+                conn.execute(
+                    "UPDATE items SET source_type = ? WHERE id = ?",
+                    (new_type, item_id),
+                )
         updated += 1
 
-    # Store new hash so we skip next time if unchanged
+    return updated
+
+
+def sync_source_metadata(
+    conn: sqlite3.Connection,
+    sources_config: dict,
+    config_dir: Path | None = None,
+) -> int:
+    """Re-sync tags and source_type from config to existing DB items.
+
+    Called automatically during ingestion. Skips if sources.yml hasn't changed.
+    Returns number of updated items.
+    """
+    if config_dir:
+        current_hash = _hash_sources_file(config_dir)
+        stored_hash = _get_stored_hash(conn)
+        if current_hash == stored_hash:
+            return 0
+
+    source_map = _build_source_map(sources_config)
+    updated = _apply_metadata_updates(conn, source_map)
+
     if config_dir:
         _store_hash(conn, current_hash)
 
+    conn.commit()
     if updated > 0:
-        conn.commit()
         logger.info(f"Backfill: synced metadata on {updated} items")
-    else:
-        conn.commit()  # commit the hash update
 
     return updated
 
@@ -157,56 +170,9 @@ def backfill_tags(dry_run: bool = False):
     conn = get_db(settings.db_path)
 
     try:
-        rows = conn.execute("SELECT id, source_name, source_type, tags FROM items").fetchall()
-
-        updated = 0
-        for row in rows:
-            item_id = row["id"]
-            source_name = row["source_name"]
-            config = source_map.get(source_name)
-            if config is None:
-                continue
-
-            old_tags = json.loads(row["tags"])
-            new_tags = config["tags"]
-            old_type = row["source_type"]
-            new_type = config["source_type"]
-
-            tags_changed = sorted(old_tags) != sorted(new_tags)
-            type_changed = old_type != new_type
-
-            if not tags_changed and not type_changed:
-                continue
-
-            if dry_run:
-                changes = []
-                if tags_changed:
-                    changes.append(f"tags: {old_tags} -> {new_tags}")
-                if type_changed:
-                    changes.append(f"type: {old_type} -> {new_type}")
-                print(f"  {source_name}: {', '.join(changes)}")
-            else:
-                if tags_changed:
-                    conn.execute(
-                        "UPDATE items SET tags = ? WHERE id = ?",
-                        (json.dumps(new_tags), item_id),
-                    )
-                    conn.execute("DELETE FROM item_tags WHERE item_id = ?", (item_id,))
-                    if new_tags:
-                        conn.executemany(
-                            "INSERT OR IGNORE INTO item_tags (item_id, tag) VALUES (?, ?)",
-                            [(item_id, tag) for tag in new_tags],
-                        )
-                if type_changed:
-                    conn.execute(
-                        "UPDATE items SET source_type = ? WHERE id = ?",
-                        (new_type, item_id),
-                    )
-            updated += 1
-
+        updated = _apply_metadata_updates(conn, source_map, dry_run=dry_run)
         if not dry_run and updated > 0:
             conn.commit()
-
         action = "Would update" if dry_run else "Updated"
         print(f"{action} {updated} items.")
     finally:
