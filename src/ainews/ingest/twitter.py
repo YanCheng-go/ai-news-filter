@@ -161,6 +161,8 @@ async def fetch_twitter_user(
                         continue
 
                     url = f"https://x.com/{actual_author}/status/{tweet_id}"
+                    # Dedup by tweet ID, not URL — prevents duplicates across timelines
+                    item_id = make_id(f"twitter:{tweet_id}")
                     pub_date = None
                     if created_at:
                         try:
@@ -170,7 +172,7 @@ async def fetch_twitter_user(
 
                     items.append(
                         ContentItem(
-                            id=make_id(url),
+                            id=item_id,
                             url=url,
                             title=text[:100] + ("..." if len(text) > 100 else ""),
                             summary=text,
