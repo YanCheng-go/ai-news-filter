@@ -2,21 +2,5 @@
   "outputDirectory": "static",
   "buildCommand": "",
   "framework": null,
-  "cleanUrls": true,
-  "functions": {
-    "api/*.py": {
-      "maxDuration": 60
-    }
-  },
-  "rewrites": [
-    { "source": "/admin/:path*", "destination": "/api/index" },
-    { "source": "/api/:path*", "destination": "/api/index" },
-    { "source": "/(.*)", "destination": "/index.html" }
-  ],
-  "crons": [
-    {
-      "path": "/api/fetch",
-      "schedule": "0 6 * * *"
-    }
-  ]
+  "cleanUrls": true
 }

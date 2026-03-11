@@ -23,7 +23,7 @@
                 <a href="index.html" class="text-lg font-bold text-gray-900 dark:text-white shrink-0">MyFocalAI</a>
                 <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                     <a href="index.html" class="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 font-medium">Feeds <span id="badge-dashboard" class="hidden bg-red-500 text-white text-[10px] rounded-full px-1 min-w-[14px] text-center leading-4 font-bold"></span></a>
-                    <a href="/admin" class="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">Admin</a>
+                    <a href="admin.html" class="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">Admin</a>
                     <a href="leaderboard.html" class="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">Leaderboard</a>
                     <a href="events.html" class="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">Events</a>
                     <a href="trends.html" class="inline-flex items-center gap-1 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">Trends <span id="badge-trends" class="hidden bg-red-500 text-white text-[10px] rounded-full px-1 min-w-[14px] text-center leading-4 font-bold"></span></a>
@@ -46,8 +46,6 @@
             <input class="w-full sm:w-48 px-3 py-1.5 rounded-md bg-white dark:bg-neutral-800 text-gray-900 dark:text-gray-200 border border-gray-200 dark:border-neutral-700 text-sm outline-none focus:border-blue-400 dark:focus:border-blue-500 placeholder:text-gray-400 dark:placeholder:text-gray-500"
                    type="text" id="search" placeholder="Search titles, sources..." oninput="render()">
             <span class="text-xs text-gray-400" id="updated"></span>
-            <button id="fetch-btn" class="hidden px-3 py-1.5 rounded-md text-sm border border-blue-300 dark:border-blue-700 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900 cursor-pointer"
-                    onclick="fetchNow()">Fetch Now</button>
         </div>
         <div class="flex gap-2 mb-3 flex-wrap items-center" id="filters"></div>
         <div class="text-xs text-gray-400 dark:text-gray-500 mb-4" id="status"></div>
@@ -93,19 +91,6 @@
             if (el && counts[page] > 0) { el.textContent = counts[page] > 99 ? '99+' : counts[page]; el.classList.remove('hidden'); }
         });
         localStorage.setItem('ainews_last_seen', new Date().toISOString());
-    }
-
-    // Fetch Now (admin only)
-    if (document.cookie.split(';').some(c => c.trim().startsWith('admin_token='))) {
-        document.getElementById('fetch-btn').classList.remove('hidden');
-    }
-    function fetchNow() {
-        var btn = document.getElementById('fetch-btn');
-        btn.disabled = true; btn.textContent = 'Fetching...';
-        fetch('/api/fetch', { method: 'POST', credentials: 'same-origin' })
-            .then(r => r.json())
-            .then(d => { btn.textContent = d.status === 'completed' ? 'Done! ' + (d.new_items || 0) + ' new' : d.error || 'Done'; setTimeout(() => location.reload(), 1500); })
-            .catch(() => { btn.textContent = 'Error'; btn.disabled = false; });
     }
 
     // Data
