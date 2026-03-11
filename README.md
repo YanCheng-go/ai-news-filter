@@ -6,29 +6,30 @@ Personal news intelligence system that aggregates AI content from curated source
 |-------|-------|
 | ![Feeds](docs/screenshots/dashboard.png) | ![Admin](docs/screenshots/admin.png) |
 
+## Quick Start (Local)
+
+**Prerequisites:** [uv](https://docs.astral.sh/uv/getting-started/installation/) (Python package manager) and [Docker](https://docs.docker.com/get-docker/) (for RSSHub feeds). That's it.
+
+```bash
+git clone https://github.com/YanCheng-go/ai-news-filter.git
+cd ai-news-filter
+./start.sh              # installs deps, starts RSSHub + Ollama, launches dashboard
+```
+
+Open http://localhost:8000 — you're done. The script handles everything.
+
+**Options:**
+```bash
+./start.sh --no-score   # skip Ollama (just fetch + display, no relevance scoring)
+./start.sh stop         # stop all services
+```
+
+> **Optional:** Install [Ollama](https://ollama.ai) for local LLM scoring. Without it, `start.sh` still works — it just skips scoring.
+
 ## Two Modes
 
 ### Local (full-featured)
 Runs entirely on your machine — SQLite, Ollama, APScheduler, FastAPI dashboard.
-
-```bash
-# One-command start (installs deps, starts RSSHub + Ollama, launches dashboard)
-./start.sh
-
-# Or without scoring (no Ollama needed — just fetches and displays)
-./start.sh --no-score
-
-# Stop all services
-./start.sh stop
-```
-
-Or manually:
-```bash
-uv sync
-docker compose -f docker/docker-compose.yml up -d
-ollama serve && ollama pull qwen3:4b
-uv run ainews serve
-```
 
 #### Twitter / X (local only)
 
