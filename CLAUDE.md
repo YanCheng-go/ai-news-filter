@@ -45,7 +45,7 @@ Pipeline: **ingest -> dedup -> store -> score -> serve**.
 - `src/ainews/ingest/` — fetches from all sources. `feeds.py` for RSS/Atom, `twitter.py` for Twitter via Chrome cookies + GraphQL, `events.py` for scraping tech company event pages (Anthropic, Google), `github_trending.py` for trendshift.io scraping, `runner.py` orchestrates and skips existing items.
 - `src/ainews/backfill.py` — auto-syncs tags and source_type from `sources.yml` to existing DB items. Runs each fetch cycle (skips via file hash if config unchanged). CLI: `uv run ainews backfill-tags [--dry-run]`.
 - `src/ainews/scoring/scorer.py` — sends unscored items to Ollama with three principles from `config/principles.yml`. Returns score 0-1, tier, reason. `claude_scorer.py` is the cloud alternative using Claude API.
-- `src/ainews/storage/db.py` — SQLite (WAL). `get_existing_ids()` for batch dedup, `upsert_item` preserves existing scores via COALESCE, `ingest_items()` orchestrates dedup+upsert+commit, `source_state` table tracks last fetch per source, `mark_youtube_shorts_duplicates()` hides Shorts when a full video exists.
+- `src/ainews/storage/db.py` — SQLite (WAL) or Turso (libSQL) dual-backend. `get_db()` dispatches based on `AINEWS_TURSO_URL`. Wrapper classes (`_DictRow`, `_DictCursor`, `_LibsqlConnectionWrapper`) provide sqlite3.Row-compatible access for libsql. `get_existing_ids()` for batch dedup, `upsert_item` preserves existing scores via COALESCE, `ingest_items()` orchestrates dedup+upsert+commit, `source_state` table tracks last fetch per source, `mark_youtube_shorts_duplicates()` hides Shorts when a full video exists.
 - `src/ainews/api/app.py` — FastAPI + APScheduler. Dashboard sorted by `published_at` (except Luma events, pushed to bottom). Pagination (30/page), search, tag dropdown. Events/luma/CCC/trending items hidden from main feed (dedicated pages).
 - `templates/` — Jinja2 templates (local FastAPI): `dashboard.html`, `admin.html`, `leaderboard.html`, `events.html`, `trends.html`, `ccc.html`.
 - `static/` — static site (Vercel): `index.html`, `leaderboard.html`, `events.html`, `trends.html`, `ccc.html`. Read from `data.json` + `config.json` via client-side JS.
@@ -55,7 +55,7 @@ Pipeline: **ingest -> dedup -> store -> score -> serve**.
 
 ## Config
 
-All settings via env vars prefixed `AINEWS_` (e.g., `AINEWS_OLLAMA_MODEL=qwen3:4b`). `AINEWS_SCORING=false` disables Ollama scoring. See `src/ainews/config.py` for defaults.
+All settings via env vars prefixed `AINEWS_` (e.g., `AINEWS_OLLAMA_MODEL=qwen3:4b`). `AINEWS_SCORING=false` disables Ollama scoring. `AINEWS_TURSO_URL` + `AINEWS_TURSO_AUTH_TOKEN` enable Turso cloud database (optional; defaults to local SQLite). See `src/ainews/config.py` for defaults.
 
 ## Documentation Rules
 
