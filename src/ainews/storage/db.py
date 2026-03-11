@@ -87,7 +87,8 @@ class _LibsqlConnectionWrapper:
         self._conn.commit()
 
     def close(self):
-        self._conn.close()
+        # No-op: libsql connection is cached as a singleton and reused across requests.
+        pass
 
     def sync(self):
         """Sync embedded replica with Turso cloud."""

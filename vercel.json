@@ -2,6 +2,7 @@
   "outputDirectory": "static",
   "buildCommand": "",
   "framework": null,
+  "cleanUrls": true,
   "functions": {
     "api/index.py": {
       "runtime": "@vercel/python"
