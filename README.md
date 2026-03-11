@@ -98,6 +98,12 @@ uv run pytest                    # tests
 - [docs/sources.md](docs/sources.md) — how to configure and add sources
 - [docs/scoring.md](docs/scoring.md) — three principles, tiers, LLM prompt, score interpretation
 
+## Support
+
+If you find this project useful:
+
+- [Buy Me a Coffee](https://buymeacoffee.com/maverickmiaow)
+
 ---
 
 *Last updated: 2026-03-11*
