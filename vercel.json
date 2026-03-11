@@ -4,8 +4,8 @@
   "framework": null,
   "cleanUrls": true,
   "functions": {
-    "api/index.py": {
-      "excludeFiles": "{tests/**,__tests__/**,**/*.test.py,**/test_*.py,docker/**,scripts/**,.github/**}"
+    "api/*.py": {
+      "maxDuration": 60
     }
   },
   "rewrites": [
