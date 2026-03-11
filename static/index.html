@@ -134,7 +134,7 @@
         // Feature flag: AINEWS_SHOW_SCORES — do not delete, enable via config
         if (showScores) html += `<button class="px-3 py-1.5 rounded-md text-sm border cursor-pointer ${inactiveCls}" onclick="setFilter({order_by:'score'})">By Score</button>`;
         if (allTags.length) {
-            html += `<div class="group relative inline-block"><button class="px-3 py-1.5 rounded-md text-sm border cursor-pointer ${inactiveCls}">Tags</button><div class="hidden group-hover:block absolute top-full left-0 mt-1 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-md min-w-40 max-h-72 overflow-y-auto z-10 shadow-lg">`;
+            html += `<div class="relative inline-block"><button class="px-3 py-1.5 rounded-md text-sm border cursor-pointer ${inactiveCls}" onclick="toggleTagMenu(event)">Tags</button><div id="tag-menu" class="hidden absolute top-full left-0 mt-1 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-md min-w-40 max-h-72 overflow-y-auto z-10 shadow-lg">`;
             allTags.forEach(t => { html += `<a class="block px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-neutral-700 cursor-pointer" onclick="setFilter({tag:'${t}'})">${t}</a>`; });
             html += '</div></div>';
         }
@@ -222,6 +222,16 @@
             document.getElementById('pagination').innerHTML = '';
         }
     }
+
+    function toggleTagMenu(e) {
+        e.stopPropagation();
+        var menu = document.getElementById('tag-menu');
+        if (menu) menu.classList.toggle('hidden');
+    }
+    document.addEventListener('click', function() {
+        var menu = document.getElementById('tag-menu');
+        if (menu) menu.classList.add('hidden');
+    });
 
     function goPage(p) { page = p; render(); window.scrollTo(0, 0); }
     function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
