@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Personal news intelligence system. Aggregates content from Twitter/X, Xiaohongshu, YouTube, and RSS feeds via RSSHub, then scores relevance using LLM against user-defined principles. Two modes: local (SQLite + Ollama + FastAPI) and cloud (GitHub Actions + Vercel static site).
+Personal news intelligence system. Aggregates content from Twitter/X, Xiaohongshu, YouTube, and RSS feeds via RSSHub, then scores relevance using LLM against user-defined principles. Three modes: local (SQLite + Ollama + FastAPI), online public (static HTML + GitHub Actions), and online admin (Vercel serverless + Turso).
 
 ## Setup
 
@@ -46,16 +46,28 @@ Pipeline: **ingest -> dedup -> store -> score -> serve**.
 - `src/ainews/backfill.py` — auto-syncs tags and source_type from `sources.yml` to existing DB items. Runs each fetch cycle (skips via file hash if config unchanged). CLI: `uv run ainews backfill-tags [--dry-run]`.
 - `src/ainews/scoring/scorer.py` — sends unscored items to Ollama with three principles from `config/principles.yml`. Returns score 0-1, tier, reason. `claude_scorer.py` is the cloud alternative using Claude API.
 - `src/ainews/storage/db.py` — SQLite (WAL) or Turso (libSQL) dual-backend. `get_db()` dispatches based on `AINEWS_TURSO_URL`. Wrapper classes (`_DictRow`, `_DictCursor`, `_LibsqlConnectionWrapper`) provide sqlite3.Row-compatible access for libsql. `get_existing_ids()` for batch dedup, `upsert_item` preserves existing scores via COALESCE, `ingest_items()` orchestrates dedup+upsert+commit, `source_state` table tracks last fetch per source, `mark_youtube_shorts_duplicates()` hides Shorts when a full video exists.
-- `src/ainews/api/app.py` — FastAPI + APScheduler. Dashboard sorted by `published_at` (except Luma events, pushed to bottom). Pagination (30/page), search, tag dropdown. Events/luma/CCC/trending items hidden from main feed (dedicated pages).
+- `src/ainews/api/app.py` — FastAPI app factory. Detects Vercel via `VERCEL` env var: locally runs APScheduler, on Vercel disables scheduler and uses Turso. Dashboard sorted by `published_at`, pagination (30/page), search, tag dropdown. Events/luma/CCC/trending items hidden from main feed (dedicated pages).
+- `src/ainews/api/admin.py` — Admin UI with password-protected CRUD. Auth via session cookies (`AINEWS_ADMIN_PASSWORD`). Protected routes use FastAPI `Depends()`.
+- `api/index.py` — Vercel serverless entry point, wraps the FastAPI app.
 - `templates/` — Jinja2 templates (local FastAPI): `dashboard.html`, `admin.html`, `leaderboard.html`, `events.html`, `trends.html`, `ccc.html`.
-- `static/` — static site (Vercel): `index.html`, `leaderboard.html`, `events.html`, `trends.html`, `ccc.html`. Read from `data.json` + `config.json` via client-side JS.
+- `static/` — static site (Vercel public): `index.html`, `leaderboard.html`, `events.html`, `trends.html`, `ccc.html`. Read from `data.json` + `config.json` via client-side JS.
 - `src/ainews/cloud_fetch.py` — cloud pipeline: fetches feeds (no Twitter/Xiaohongshu), optionally scores with Claude API.
 - `src/ainews/export.py` — exports `data.json` (scored items) and `config.json` (leaderboard/event links from sources.yml).
 - `scripts/check-static-pages.sh` — CI check that warns when a localhost template has no matching static page.
 
 ## Config
 
-All settings via env vars prefixed `AINEWS_` (e.g., `AINEWS_OLLAMA_MODEL=qwen3:4b`). `AINEWS_SCORING=false` disables Ollama scoring. `AINEWS_TURSO_URL` + `AINEWS_TURSO_AUTH_TOKEN` enable Turso cloud database (optional; defaults to local SQLite). See `src/ainews/config.py` for defaults.
+All settings via env vars prefixed `AINEWS_` (e.g., `AINEWS_OLLAMA_MODEL=qwen3:4b`). `AINEWS_SCORING=false` disables Ollama scoring. `AINEWS_TURSO_URL` + `AINEWS_TURSO_AUTH_TOKEN` enable Turso cloud database (optional; defaults to local SQLite). `AINEWS_ADMIN_PASSWORD` enables admin login (when set, admin routes require authentication). See `src/ainews/config.py` for defaults.
+
+## Deployment Modes
+
+| Mode | Database | Auth | Fetch | Served by |
+|------|----------|------|-------|-----------|
+| Local (`uv run ainews serve`) | SQLite | None | APScheduler + Ollama | FastAPI |
+| Online public | data.json (static) | None | GitHub Actions + Claude API | Vercel static |
+| Online admin | Turso | Password login | Vercel cron + Claude API | Vercel serverless |
+
+Vercel env vars needed: `AINEWS_TURSO_URL`, `AINEWS_TURSO_AUTH_TOKEN`, `AINEWS_ADMIN_PASSWORD`, `CRON_SECRET`, `ANTHROPIC_API_KEY`.
 
 ## Documentation Rules
 
@@ -72,5 +84,5 @@ See [open issues](https://github.com/YanCheng-go/ai-news-filter/issues) for the 
 
 ---
 
-*Last updated: 2026-03-11*
+*Last updated: 2026-03-12*
 
