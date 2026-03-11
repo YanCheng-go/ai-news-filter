@@ -2,9 +2,9 @@
 
 Personal news intelligence system that aggregates AI content from curated sources, scores relevance using LLM, and serves a web dashboard. Runs locally with Ollama (free) or deployed to Vercel with Claude API scoring.
 
-| Dashboard | Admin |
-|-----------|-------|
-| ![Dashboard](docs/screenshots/dashboard.png) | ![Admin](docs/screenshots/admin.png) |
+| Feeds | Admin |
+|-------|-------|
+| ![Feeds](docs/screenshots/dashboard.png) | ![Admin](docs/screenshots/admin.png) |
 
 ## Two Modes
 
@@ -89,12 +89,12 @@ uv run pytest                    # tests
 
 | Page | Local | Vercel | Description |
 |------|-------|--------|-------------|
-| Dashboard | `/` | `index.html` | Main feed with filters, search, pagination |
+| Feeds | `/` | `index.html` | Main feed with filters, search, pagination |
 | Leaderboard | `/leaderboard` | `leaderboard.html` | AI benchmark and ranking sites |
 | Events | `/events` | `events.html` | Event calendars, Luma, tech events (3 tabs) |
 | Trends | `/trends` | `trends.html` | GitHub trending repos — daily + history (2 tabs) |
 | CCC | `/ccc` | `ccc.html` | Claude Code Changelogs |
-| Admin | `/admin` | — | Source management (local only) |
+| Admin | `/admin` | `admin.html` | Source management (local); read-only info (online) |
 
 ## Documentation
 
