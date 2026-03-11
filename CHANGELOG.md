@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.3.1 — 2026-03-11
+
+### Features
+
+- **`AINEWS_SHOW_SCORES` feature flag** — Top Only and By Score filters on the dashboard are now hidden by default; set `AINEWS_SHOW_SCORES=true` to re-enable them
+
+### Fixes
+
+- **Missing publish date** — Items without a `published_at` now show `fetched_at` with a "(fetched)" label instead of showing no date at all. Applied across dashboard, events, trends, and CCC pages (both local templates and static site)
+
 ## v0.3.0 — 2026-03-09
 
 ### Features
