@@ -114,11 +114,12 @@ test("text is not truncated or overflowing", async ({ page }) => {
         style.overflowX === "scroll"
       )
         return;
+      const text = (el.textContent || "").trim();
+      if (!text) return; // skip empty layout containers
       const rect = el.getBoundingClientRect();
       if (rect.width > 0 && el.scrollWidth > el.clientWidth + 1) {
-        const text = (el.textContent || "").slice(0, 50);
         overflowing.push(
-          `<${el.tagName}> "${text}" (${el.scrollWidth}>${el.clientWidth})`
+          `<${el.tagName}> "${text.slice(0, 50)}" (${el.scrollWidth}>${el.clientWidth})`
         );
       }
     });
