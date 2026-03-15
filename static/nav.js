@@ -27,7 +27,9 @@
         });
     }
 
-    var badge = '<span class="hidden bg-red-500 text-white text-[10px] rounded-full px-1 min-w-[14px] text-center leading-4 font-bold"';
+    function badgeSpan(id) {
+        return '<span id="' + id + '" class="hidden bg-red-500 text-white text-[10px] rounded-full px-1 min-w-[14px] text-center leading-4 font-bold"></span>';
+    }
 
     // Hamburger icon SVGs
     var menuIcon = '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>';
@@ -35,11 +37,11 @@
 
     // Nav links: Feeds, Admin, Leaderboard, Trends, CCC, Events, About
     var links =
-        '<a href="index.html" class="inline-flex items-center gap-1 ' + cls('dashboard') + '">Feeds ' + badge + ' id="badge-dashboard"></span></a>' +
+        '<a href="index.html" class="inline-flex items-center gap-1 ' + cls('dashboard') + '">Feeds ' + badgeSpan('badge-dashboard') + '</a>' +
         '<a href="admin.html" class="' + cls('admin') + '">Admin</a>' +
         '<a href="leaderboard.html" class="' + cls('leaderboard') + '">Leaderboard</a>' +
-        '<a href="trends.html" class="inline-flex items-center gap-1 ' + cls('trends') + '">Trends ' + badge + ' id="badge-trends"></span></a>' +
-        '<a href="ccc.html" class="inline-flex items-center gap-1 ' + cls('ccc') + '">CCC ' + badge + ' id="badge-ccc"></span></a>' +
+        '<a href="trends.html" class="inline-flex items-center gap-1 ' + cls('trends') + '">Trends ' + badgeSpan('badge-trends') + '</a>' +
+        '<a href="ccc.html" class="inline-flex items-center gap-1 ' + cls('ccc') + '">CCC ' + badgeSpan('badge-ccc') + '</a>' +
         '<a href="events.html" class="' + cls('events') + '">Events</a>' +
         '<a href="about.html" class="' + cls('about') + '">About</a>';
 
