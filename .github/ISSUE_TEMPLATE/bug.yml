@@ -21,6 +21,11 @@ body:
       placeholder: |
         1. Run `ainews fetch`
         2. ...
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: "OS, Python version, browser, etc."
   - type: dropdown
     id: priority
     attributes:
