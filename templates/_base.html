@@ -27,6 +27,7 @@
                         Feeds
                         <span id="badge-dashboard" class="hidden bg-red-500 text-white text-[10px] rounded-full px-1 min-w-[14px] text-center leading-4 font-bold"></span>
                     </a>
+                    <a href="/admin" class="{{ 'text-blue-600 dark:text-blue-400 font-medium' if active_page == 'admin' else 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200' }}">Admin</a>
                     <a href="/leaderboard" class="{{ 'text-blue-600 dark:text-blue-400 font-medium' if active_page == 'leaderboard' else 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200' }}">Leaderboard</a>
                     <a href="/trends" class="inline-flex items-center gap-1 {{ 'text-blue-600 dark:text-blue-400 font-medium' if active_page == 'trends' else 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200' }}">
                         Trends
@@ -37,7 +38,6 @@
                         <span id="badge-ccc" class="hidden bg-red-500 text-white text-[10px] rounded-full px-1 min-w-[14px] text-center leading-4 font-bold"></span>
                     </a>
                     <a href="/events" class="{{ 'text-blue-600 dark:text-blue-400 font-medium' if active_page == 'events' else 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200' }}">Events</a>
-                    <a href="/admin" class="{{ 'text-blue-600 dark:text-blue-400 font-medium' if active_page == 'admin' else 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200' }}">Sources</a>
                     <a href="/about" class="{{ 'text-blue-600 dark:text-blue-400 font-medium' if active_page == 'about' else 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200' }}">About</a>
                 </div>
                 <div class="flex items-center gap-1 ml-auto">

@@ -240,7 +240,7 @@
         // Feature flag: AINEWS_SHOW_SCORES — do not delete, enable via config
         if (showScores) html += `<button class="px-3 py-1.5 rounded-md text-sm border cursor-pointer ${inactiveCls}" onclick="setFilter({order_by:'score'})">By Score</button>`;
         if (allTags.length) {
-            html += `<div class="group relative inline-block"><button class="px-3 py-1.5 rounded-md text-sm border cursor-pointer ${inactiveCls}">Tags</button><div class="hidden group-hover:block absolute top-full left-0 mt-1 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-md min-w-40 max-h-72 overflow-y-auto z-10 shadow-lg">`;
+            html += `<div class="relative inline-block"><button class="px-3 py-1.5 rounded-md text-sm border cursor-pointer ${inactiveCls}" onclick="toggleTagDropdown(event)">Tags</button><div class="hidden absolute top-full left-0 mt-1 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-md min-w-40 max-h-72 overflow-y-auto z-10 shadow-lg" id="tag-dropdown">`;
             allTags.forEach(t => { html += `<a class="block px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-neutral-700 cursor-pointer" onclick="setFilter({tag:'${escapeAttr(t)}'})">${escapeHtml(t)}</a>`; });
             html += '</div></div>';
         }
@@ -342,6 +342,17 @@
     }
 
     function goPage(p) { page = p; if (isSupabaseMode) { loadSupabaseItems(); } else { render(); } window.scrollTo(0, 0); }
+
+    // Tags dropdown — click to toggle (touch-friendly)
+    function toggleTagDropdown(e) {
+        e.stopPropagation();
+        var dd = document.getElementById('tag-dropdown');
+        if (dd) dd.classList.toggle('hidden');
+    }
+    document.addEventListener('click', function() {
+        var dd = document.getElementById('tag-dropdown');
+        if (dd) dd.classList.add('hidden');
+    });
     function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text || ''; return div.innerHTML; }
     function escapeAttr(text) { return escapeHtml(text).replace(/'/g, '&#39;'); }
 

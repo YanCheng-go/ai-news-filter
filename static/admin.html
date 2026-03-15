@@ -18,7 +18,7 @@
     </style>
 </head>
 <body class="bg-gray-50 text-gray-900 dark:bg-neutral-950 dark:text-gray-200 antialiased">
-    <nav id="main-nav" data-active="sources" class="border-b border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 sticky top-0 z-50"></nav>
+    <nav id="main-nav" data-active="admin" class="border-b border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 sticky top-0 z-50"></nav>
     <script src="nav.js"></script>
 
     <main class="max-w-5xl mx-auto px-5 py-5">
@@ -74,6 +74,7 @@
 
         <!-- State 3: Logged in — source CRUD -->
         <div id="state-admin" class="hidden">
+            <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Add, edit, and manage your feed sources. Each source is fetched on demand and scored against your interests.</p>
             <div class="flex justify-between items-center mb-5">
                 <h2 class="text-xl font-bold text-gray-900 dark:text-white">Sources</h2>
                 <div class="flex gap-2 items-center">
