@@ -54,7 +54,8 @@
         '<a href="trends.html" class="inline-flex items-center gap-1 ' + mobileLink + ' ' + cls('trends') + '">Trends ' + badgeSpan('badge-trends-m') + '</a>' +
         '<a href="ccc.html" class="inline-flex items-center gap-1 ' + mobileLink + ' ' + cls('ccc') + '">CCC ' + badgeSpan('badge-ccc-m') + '</a>' +
         '<a href="events.html" class="' + mobileLink + ' ' + cls('events') + '">Events</a>' +
-        '<a href="about.html" class="' + mobileLink + ' ' + cls('about') + '">About</a>';
+        '<a href="about.html" class="' + mobileLink + ' ' + cls('about') + '">About</a>' +
+        '<a href="https://buymeacoffee.com/maverickmiaow" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 ' + mobileLink + ' text-gray-400 hover:text-yellow-500 dark:hover:text-yellow-400">&#x2615; Support</a>';
 
     var rightSide =
         '<a href="https://buymeacoffee.com/maverickmiaow" target="_blank" rel="noopener noreferrer" class="hidden sm:inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-400 hover:text-yellow-500 dark:hover:text-yellow-400" title="Support the Developer">&#x2615; Support</a>' +
