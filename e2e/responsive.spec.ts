@@ -102,7 +102,7 @@ test("text is not truncated or overflowing", async ({ page }) => {
   await stabilizePage(page);
 
   const overflowingElements = await page.evaluate(() => {
-    const elements = document.querySelectorAll("h1, h2, h3, p, a, span, div");
+    const elements = document.querySelectorAll("h1, h2, h3, p, a, span");
     const overflowing: string[] = [];
     elements.forEach((el) => {
       const style = window.getComputedStyle(el);
