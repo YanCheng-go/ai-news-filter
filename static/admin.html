@@ -20,6 +20,7 @@
 <body class="bg-gray-50 text-gray-900 dark:bg-neutral-950 dark:text-gray-200 antialiased">
     <nav id="main-nav" data-active="admin" class="border-b border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 sticky top-0 z-50"></nav>
     <script src="nav.js"></script>
+    <script src="shared-config.js"></script>
 
     <main class="max-w-5xl mx-auto px-5 py-5">
         <!-- State 1/2: Logged out (covers both no-supabase and has-supabase) -->
@@ -164,10 +165,12 @@
     }
 
     function showState(state) {
-        ['state-no-supabase', 'state-login', 'state-admin'].forEach(function(id) {
-            document.getElementById(id).classList.add('hidden');
+        ['state-login', 'state-admin'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) el.classList.add('hidden');
         });
-        document.getElementById('state-' + state).classList.remove('hidden');
+        var target = document.getElementById('state-' + state);
+        if (target) target.classList.remove('hidden');
     }
 
     // --- Supabase client ---
@@ -752,7 +755,6 @@
     // --- Init ---
     init();
     </script>
-    <script src="shared-config.js"></script>
     <script src="badges.js"></script>
     <script src="auth-nav.js"></script>
 </body>
