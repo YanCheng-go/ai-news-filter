@@ -8,7 +8,7 @@ from ainews.sources.url_resolver import resolve_url
 
 
 def _run(coro):
-    return asyncio.new_event_loop().run_until_complete(coro)
+    return asyncio.run(coro)
 
 
 # --- Twitter/X (no network) ---

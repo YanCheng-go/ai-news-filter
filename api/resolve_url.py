@@ -10,38 +10,58 @@ Returns: { "source_type": "youtube", "fields": {...}, "suggested_tags": [] }
 import json
 import os
 import re
+import socket
 from http.server import BaseHTTPRequestHandler
+from ipaddress import ip_address
 from urllib.parse import urlparse
 
 import httpx
 
-_YOUTUBE_HOSTS = {
-    "youtube.com",
-    "www.youtube.com",
-    "m.youtube.com",
-    "youtu.be",
-}
-_TWITTER_HOSTS = {
-    "x.com",
-    "twitter.com",
-    "www.x.com",
-    "www.twitter.com",
-}
-_ARXIV_HOSTS = {"arxiv.org", "www.arxiv.org"}
-_XHS_HOSTS = {
-    "xiaohongshu.com",
-    "www.xiaohongshu.com",
-    "xhslink.com",
-}
-_LUMA_HOSTS = {"lu.ma", "www.lu.ma"}
-_RSSHUB_HOSTS = {"rsshub.app", "www.rsshub.app"}
+from ainews.sources.url_constants import (
+    ARXIV_HOSTS,
+    BROWSER_UA,
+    CHANNEL_ID_PATTERNS,
+    LUMA_HOSTS,
+    RSSHUB_HOSTS,
+    TWITTER_HOSTS,
+    XHS_HOSTS,
+    YOUTUBE_HOSTS,
+    extract_title,
+    resolve_arxiv,
+    resolve_luma,
+    resolve_rsshub,
+    resolve_twitter,
+    resolve_xiaohongshu,
+)
 
-_CHANNEL_ID_PATTERNS = [
-    re.compile(r'"externalId"\s*:\s*"(UC[\w-]{22})"'),
-    re.compile(r"/channel/(UC[\w-]{22})"),
-    re.compile(r'"channelId"\s*:\s*"(UC[\w-]{22})"'),
-]
-_BROWSER_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+_MAX_BODY_SIZE = 4096
+
+# Hostnames always blocked (never attempt DNS resolution)
+_BLOCKED_HOSTS = {"localhost", "metadata.google.internal"}
+
+
+def _is_safe_url(url: str) -> bool:
+    """Block requests to private/internal IP ranges."""
+    parsed = urlparse(url)
+    host = parsed.hostname or ""
+    if host.lower() in _BLOCKED_HOSTS:
+        return False
+    try:
+        addr = ip_address(host)
+        return addr.is_global
+    except ValueError:
+        pass
+    try:
+        infos = socket.getaddrinfo(host, None, proto=socket.IPPROTO_TCP)
+    except socket.gaierror:
+        return False
+    if not infos:
+        return False
+    for info in infos:
+        addr = ip_address(info[4][0])
+        if not addr.is_global:
+            return False
+    return True
 
 
 def _cors_headers(request_origin: str = "") -> dict:
@@ -82,19 +102,7 @@ def _result(source_type, fields, tags=None):
     }
 
 
-# ── Twitter ──────────────────────────────────────────────────────
-
-
-def _resolve_twitter(parsed) -> dict:
-    path = parsed.path.strip("/")
-    handle = path.split("/")[0].lstrip("@") if path else ""
-    blocked = {"home", "explore", "search", "settings", "i"}
-    if not handle or handle.lower() in blocked:
-        raise ValueError("Could not extract handle from URL")
-    return _result("twitter", {"handle": handle})
-
-
-# ── YouTube ──────────────────────────────────────────────────────
+# ── YouTube (sync, needs network) ────────────────────────────────
 
 
 def _resolve_youtube(url: str, parsed) -> dict:
@@ -104,32 +112,16 @@ def _resolve_youtube(url: str, parsed) -> dict:
     if m:
         channel_id = m.group(1)
         name = _fetch_yt_name(channel_id)
-        return _result(
-            "youtube",
-            {
-                "channel_id": channel_id,
-                "name": name,
-            },
-        )
+        return _result("youtube", {"channel_id": channel_id, "name": name})
 
     if path.startswith("/@"):
         channel_id, name = _fetch_yt_page_info(url)
-        return _result(
-            "youtube",
-            {
-                "channel_id": channel_id,
-                "name": name,
-            },
-        )
+        return _result("youtube", {"channel_id": channel_id, "name": name})
 
     is_video = path.startswith(("/watch", "/shorts", "/live")) or parsed.hostname == "youtu.be"
     if is_video:
         oembed = f"https://www.youtube.com/oembed?url={url}&format=json"
-        resp = httpx.get(
-            oembed,
-            timeout=10,
-            follow_redirects=True,
-        )
+        resp = httpx.get(oembed, timeout=10, follow_redirects=True)
         if resp.status_code != 200:
             raise ValueError(f"YouTube oEmbed failed (status {resp.status_code})")
         data = resp.json()
@@ -138,42 +130,25 @@ def _resolve_youtube(url: str, parsed) -> dict:
         if not author_url:
             raise ValueError("Could not determine channel from video")
         channel_id, _ = _fetch_yt_page_info(author_url)
-        return _result(
-            "youtube",
-            {
-                "channel_id": channel_id,
-                "name": author_name,
-            },
-        )
+        return _result("youtube", {"channel_id": channel_id, "name": author_name})
 
     raise ValueError(f"Could not parse YouTube URL: {url}")
 
 
 def _fetch_yt_page_info(page_url: str) -> tuple:
-    headers = {
-        "User-Agent": _BROWSER_UA,
-        "Cookie": "CONSENT=YES+1",
-    }
-    resp = httpx.get(
-        page_url,
-        headers=headers,
-        timeout=15,
-        follow_redirects=True,
-    )
+    headers = {"User-Agent": BROWSER_UA, "Cookie": "CONSENT=YES+1"}
+    resp = httpx.get(page_url, headers=headers, timeout=15, follow_redirects=True)
     resp.raise_for_status()
     text = resp.text
     channel_id = None
-    for pat in _CHANNEL_ID_PATTERNS:
+    for pat in CHANNEL_ID_PATTERNS:
         m = pat.search(text)
         if m:
             channel_id = m.group(1)
             break
     if not channel_id:
         raise ValueError(f"Could not find channel_id on page: {page_url}")
-    name_match = re.search(
-        r'<meta\s+property="og:title"\s+content="([^"]+)"',
-        text,
-    )
+    name_match = re.search(r'<meta\s+property="og:title"\s+content="([^"]+)"', text)
     name = name_match.group(1) if name_match else ""
     return channel_id, name
 
@@ -187,118 +162,17 @@ def _fetch_yt_name(channel_id: str) -> str:
         return channel_id
 
 
-# ── arXiv ────────────────────────────────────────────────────────
-
-
-def _resolve_arxiv(parsed) -> dict:
-    path = parsed.path.strip("/")
-
-    m = re.match(r"(?:abs|pdf)/(\d{4}\.\d{4,5})", path)
-    if m:
-        paper_id = m.group(1)
-        base = "https://export.arxiv.org/api/query"
-        url = f"{base}?search_query=id:{paper_id}&max_results=50"
-        return _result(
-            "arxiv",
-            {"url": url, "name": f"arXiv:{paper_id}"},
-            ["research"],
-        )
-
-    m = re.match(r"list/([\w.]+)", path)
-    if m:
-        cat = m.group(1)
-        base = "https://export.arxiv.org/api/query"
-        url = (
-            f"{base}?search_query=cat:{cat}"
-            "&sortBy=submittedDate&sortOrder=descending"
-            "&max_results=50"
-        )
-        return _result(
-            "arxiv",
-            {"url": url, "name": f"arXiv:{cat}"},
-            ["research"],
-        )
-
-    raise ValueError(f"Could not parse arXiv URL: {parsed.geturl()}")
-
-
-# ── Xiaohongshu ──────────────────────────────────────────────────
-
-
-def _resolve_xiaohongshu(parsed) -> dict:
-    path = parsed.path.strip("/")
-    m = re.match(r"user/profile/([a-fA-F0-9]+)", path)
-    if m:
-        user_id = m.group(1)
-        return _result(
-            "xiaohongshu",
-            {
-                "user_id": user_id,
-                "name": f"XHS:{user_id[:8]}",
-            },
-        )
-    raise ValueError(f"Could not parse Xiaohongshu URL: {parsed.geturl()}")
-
-
-# ── Luma ─────────────────────────────────────────────────────────
-
-
-def _resolve_luma(parsed) -> dict:
-    path = parsed.path.strip("/")
-    handle = path.split("/")[0] if path else ""
-    if not handle:
-        raise ValueError("Could not extract Luma handle")
-    return _result("luma", {"handle": handle})
-
-
-# ── RSSHub ───────────────────────────────────────────────────────
-
-
-def _resolve_rsshub(parsed) -> dict:
-    route = parsed.path.strip("/")
-    if not route:
-        raise ValueError("Empty RSSHub route")
-    name = route.split("/")[-1]
-    return _result(
-        "rsshub",
-        {
-            "route": route,
-            "name": f"RSSHub:{name}",
-        },
-    )
-
-
-# ── Generic (RSS auto-discovery) ─────────────────────────────────
-
-
-def _extract_title(html: str) -> str:
-    m = re.search(
-        r'<meta\s+property="og:title"\s+content="([^"]+)"',
-        html,
-        re.IGNORECASE,
-    )
-    if m:
-        return m.group(1)
-    m = re.search(
-        r"<title[^>]*>([^<]+)</title>",
-        html,
-        re.IGNORECASE,
-    )
-    if m:
-        return m.group(1).strip()
-    return ""
+# ── Generic (RSS auto-discovery, sync, needs network) ────────────
 
 
 def _resolve_generic(url: str) -> dict:
+    if not _is_safe_url(url):
+        raise ValueError("Blocked URL: not allowed to fetch internal/private addresses")
     # Only read first 64KB — RSS/title tags are always in <head>
     max_bytes = 65536
     try:
         with httpx.stream(
-            "GET",
-            url,
-            headers={"User-Agent": _BROWSER_UA},
-            timeout=10,
-            follow_redirects=True,
+            "GET", url, headers={"User-Agent": BROWSER_UA}, timeout=10, follow_redirects=True
         ) as resp:
             resp.raise_for_status()
             chunks = []
@@ -325,14 +199,8 @@ def _resolve_generic(url: str) -> dict:
                 p = urlparse(url)
                 feed_url = f"{p.scheme}://{p.netloc}{feed_url}"
 
-    name = _extract_title(text) or urlparse(url).hostname or url
-    return _result(
-        "rss",
-        {
-            "url": feed_url or url,
-            "name": name,
-        },
-    )
+    name = extract_title(text) or urlparse(url).hostname or url
+    return _result("rss", {"url": feed_url or url, "name": name})
 
 
 # ── Dispatch ─────────────────────────────────────────────────────
@@ -344,18 +212,18 @@ def _resolve(url: str) -> dict:
     parsed = urlparse(url)
     host = parsed.hostname or ""
 
-    if host in _YOUTUBE_HOSTS:
+    if host in YOUTUBE_HOSTS:
         return _resolve_youtube(url, parsed)
-    if host in _TWITTER_HOSTS:
-        return _resolve_twitter(parsed)
-    if host in _ARXIV_HOSTS:
-        return _resolve_arxiv(parsed)
-    if host in _XHS_HOSTS:
-        return _resolve_xiaohongshu(parsed)
-    if host in _LUMA_HOSTS:
-        return _resolve_luma(parsed)
-    if host in _RSSHUB_HOSTS:
-        return _resolve_rsshub(parsed)
+    if host in TWITTER_HOSTS:
+        return resolve_twitter(parsed)
+    if host in ARXIV_HOSTS:
+        return resolve_arxiv(parsed)
+    if host in XHS_HOSTS:
+        return resolve_xiaohongshu(parsed)
+    if host in LUMA_HOSTS:
+        return resolve_luma(parsed)
+    if host in RSSHUB_HOSTS:
+        return resolve_rsshub(parsed)
 
     return _resolve_generic(url)
 
@@ -377,28 +245,18 @@ class handler(BaseHTTPRequestHandler):
 
         auth = self.headers.get("Authorization", "")
         if not auth.startswith("Bearer "):
-            return self._json(
-                401,
-                {"error": "Missing Authorization header"},
-                cors,
-            )
+            return self._json(401, {"error": "Missing Authorization header"}, cors)
         user = _verify_jwt(auth[7:])
         if not user:
-            return self._json(
-                401,
-                {"error": "Invalid or expired token"},
-                cors,
-            )
+            return self._json(401, {"error": "Invalid or expired token"}, cors)
 
         length = int(self.headers.get("Content-Length", 0))
+        if length > _MAX_BODY_SIZE:
+            return self._json(413, {"error": "Request body too large"}, cors)
         body = json.loads(self.rfile.read(length)) if length else {}
         url = body.get("url", "").strip()
         if not url:
-            return self._json(
-                400,
-                {"error": "URL is required"},
-                cors,
-            )
+            return self._json(400, {"error": "URL is required"}, cors)
 
         try:
             result = _resolve(url)

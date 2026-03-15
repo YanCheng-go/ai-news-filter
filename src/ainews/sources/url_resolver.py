@@ -3,26 +3,56 @@
 from __future__ import annotations
 
 import re
+import socket
 from dataclasses import dataclass, field
+from ipaddress import ip_address
 from urllib.parse import urlparse
 
 import httpx
 
-_YOUTUBE_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be"}
-_TWITTER_HOSTS = {"x.com", "twitter.com", "www.x.com", "www.twitter.com"}
-_ARXIV_HOSTS = {"arxiv.org", "www.arxiv.org"}
-_XHS_HOSTS = {"xiaohongshu.com", "www.xiaohongshu.com", "xhslink.com"}
-_LUMA_HOSTS = {"lu.ma", "www.lu.ma"}
-_RSSHUB_HOSTS = {"rsshub.app", "www.rsshub.app"}
+from ainews.sources.url_constants import (
+    ARXIV_HOSTS,
+    BROWSER_UA,
+    CHANNEL_ID_PATTERNS,
+    LUMA_HOSTS,
+    RSSHUB_HOSTS,
+    TWITTER_HOSTS,
+    XHS_HOSTS,
+    YOUTUBE_HOSTS,
+    extract_title,
+    resolve_arxiv,
+    resolve_luma,
+    resolve_rsshub,
+    resolve_twitter,
+    resolve_xiaohongshu,
+)
 
-# Patterns to extract channel_id from YouTube page source
-_CHANNEL_ID_PATTERNS = [
-    re.compile(r'"externalId"\s*:\s*"(UC[\w-]{22})"'),
-    re.compile(r"/channel/(UC[\w-]{22})"),
-    re.compile(r'"channelId"\s*:\s*"(UC[\w-]{22})"'),
-]
+# Hostnames always blocked (never attempt DNS resolution)
+_BLOCKED_HOSTS = {"localhost", "metadata.google.internal"}
 
-_BROWSER_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+
+def _is_safe_url(url: str) -> bool:
+    """Block requests to private/internal IP ranges."""
+    parsed = urlparse(url)
+    host = parsed.hostname or ""
+    if host.lower() in _BLOCKED_HOSTS:
+        return False
+    try:
+        addr = ip_address(host)
+        return addr.is_global
+    except ValueError:
+        pass
+    try:
+        infos = socket.getaddrinfo(host, None, proto=socket.IPPROTO_TCP)
+    except socket.gaierror:
+        return False
+    if not infos:
+        return False
+    for info in infos:
+        addr = ip_address(info[4][0])
+        if not addr.is_global:
+            return False
+    return True
 
 
 @dataclass
@@ -30,6 +60,15 @@ class ResolvedSource:
     source_type: str
     fields: dict[str, str]
     suggested_tags: list[str] = field(default_factory=list)
+
+
+def _to_resolved(d: dict) -> ResolvedSource:
+    """Convert a plain dict from url_constants to a ResolvedSource."""
+    return ResolvedSource(
+        source_type=d["source_type"],
+        fields=d["fields"],
+        suggested_tags=d.get("suggested_tags", []),
+    )
 
 
 async def resolve_url(url: str) -> ResolvedSource:
@@ -44,18 +83,18 @@ async def resolve_url(url: str) -> ResolvedSource:
     parsed = urlparse(url)
     host = parsed.hostname or ""
 
-    if host in _YOUTUBE_HOSTS:
+    if host in YOUTUBE_HOSTS:
         return await _resolve_youtube(url, parsed)
-    if host in _TWITTER_HOSTS:
-        return _resolve_twitter(parsed)
-    if host in _ARXIV_HOSTS:
-        return _resolve_arxiv(parsed)
-    if host in _XHS_HOSTS:
-        return _resolve_xiaohongshu(parsed)
-    if host in _LUMA_HOSTS:
-        return _resolve_luma(parsed)
-    if host in _RSSHUB_HOSTS:
-        return _resolve_rsshub(parsed)
+    if host in TWITTER_HOSTS:
+        return _to_resolved(resolve_twitter(parsed))
+    if host in ARXIV_HOSTS:
+        return _to_resolved(resolve_arxiv(parsed))
+    if host in XHS_HOSTS:
+        return _to_resolved(resolve_xiaohongshu(parsed))
+    if host in LUMA_HOSTS:
+        return _to_resolved(resolve_luma(parsed))
+    if host in RSSHUB_HOSTS:
+        return _to_resolved(resolve_rsshub(parsed))
 
     # Fallback: try RSS auto-discovery on any URL
     return await _resolve_generic(url)
@@ -121,7 +160,7 @@ async def _fetch_youtube_page_info(
     page_url: str, *, client: httpx.AsyncClient | None = None
 ) -> tuple[str, str]:
     """Fetch a YouTube page and extract channel_id and name."""
-    headers = {"User-Agent": _BROWSER_UA, "Cookie": "CONSENT=YES+1"}
+    headers = {"User-Agent": BROWSER_UA, "Cookie": "CONSENT=YES+1"}
 
     async def _fetch(c: httpx.AsyncClient) -> tuple[str, str]:
         resp = await c.get(page_url, headers=headers)
@@ -129,7 +168,7 @@ async def _fetch_youtube_page_info(
         text = resp.text
 
         channel_id = None
-        for pat in _CHANNEL_ID_PATTERNS:
+        for pat in CHANNEL_ID_PATTERNS:
             m = pat.search(text)
             if m:
                 channel_id = m.group(1)
@@ -159,144 +198,18 @@ async def _fetch_youtube_channel_name(channel_id: str) -> str:
         return channel_id
 
 
-# ── Twitter/X ────────────────────────────────────────────────────────
-
-
-def _resolve_twitter(parsed: urlparse) -> ResolvedSource:
-    """Extract handle from a Twitter/X URL. No network call needed."""
-    path = parsed.path.strip("/")
-    handle = path.split("/")[0] if path else ""
-    handle = handle.lstrip("@")
-
-    if not handle or handle.lower() in {
-        "home",
-        "explore",
-        "search",
-        "settings",
-        "i",
-    }:
-        raise ValueError(f"Could not extract handle from URL: {parsed.geturl()}")
-
-    return ResolvedSource(
-        source_type="twitter",
-        fields={"handle": handle},
-    )
-
-
-# ── arXiv ────────────────────────────────────────────────────────────
-
-
-def _resolve_arxiv(parsed: urlparse) -> ResolvedSource:
-    """Resolve arxiv.org URLs to RSS feed URLs.
-
-    Supports:
-      - arxiv.org/abs/2405.12345 -> paper-specific (uses category feed)
-      - arxiv.org/list/cs.AI/recent -> category listing
-    """
-    path = parsed.path.strip("/")
-
-    # Paper URL: /abs/XXXX.XXXXX or /pdf/XXXX.XXXXX
-    m = re.match(r"(?:abs|pdf)/(\d{4}\.\d{4,5})", path)
-    if m:
-        paper_id = m.group(1)
-        # Use the paper ID as RSS query — user can refine
-        return ResolvedSource(
-            source_type="arxiv",
-            fields={
-                "url": f"https://export.arxiv.org/api/query?search_query=id:{paper_id}&max_results=50",
-                "name": f"arXiv:{paper_id}",
-            },
-            suggested_tags=["research"],
-        )
-
-    # Category listing: /list/cs.AI/recent
-    m = re.match(r"list/([\w.]+)", path)
-    if m:
-        category = m.group(1)
-        return ResolvedSource(
-            source_type="arxiv",
-            fields={
-                "url": f"https://export.arxiv.org/api/query?search_query=cat:{category}&sortBy=submittedDate&sortOrder=descending&max_results=50",
-                "name": f"arXiv:{category}",
-            },
-            suggested_tags=["research"],
-        )
-
-    raise ValueError(f"Could not parse arXiv URL: {parsed.geturl()}")
-
-
-# ── Xiaohongshu ──────────────────────────────────────────────────────
-
-
-def _resolve_xiaohongshu(parsed: urlparse) -> ResolvedSource:
-    """Extract user_id from Xiaohongshu profile URLs.
-
-    Supports: xiaohongshu.com/user/profile/XXXXX
-    """
-    path = parsed.path.strip("/")
-
-    m = re.match(r"user/profile/([a-fA-F0-9]+)", path)
-    if m:
-        user_id = m.group(1)
-        return ResolvedSource(
-            source_type="xiaohongshu",
-            fields={"user_id": user_id, "name": f"XHS:{user_id[:8]}"},
-        )
-
-    raise ValueError(f"Could not parse Xiaohongshu URL: {parsed.geturl()}")
-
-
-# ── Luma ─────────────────────────────────────────────────────────────
-
-
-def _resolve_luma(parsed: urlparse) -> ResolvedSource:
-    """Extract handle from lu.ma URLs.
-
-    Supports: lu.ma/handle or lu.ma/event/xxx
-    """
-    path = parsed.path.strip("/")
-    handle = path.split("/")[0] if path else ""
-
-    if not handle:
-        raise ValueError(f"Could not extract handle from Luma URL: {parsed.geturl()}")
-
-    return ResolvedSource(
-        source_type="luma",
-        fields={"handle": handle},
-    )
-
-
-# ── RSSHub ───────────────────────────────────────────────────────────
-
-
-def _resolve_rsshub(parsed: urlparse) -> ResolvedSource:
-    """Extract route from rsshub.app URLs.
-
-    Supports: rsshub.app/twitter/user/karpathy -> route: twitter/user/karpathy
-    """
-    route = parsed.path.strip("/")
-    if not route:
-        raise ValueError("Empty RSSHub route")
-
-    # Use the last path segment as a reasonable name
-    name = route.split("/")[-1]
-
-    return ResolvedSource(
-        source_type="rsshub",
-        fields={"route": route, "name": f"RSSHub:{name}"},
-    )
-
-
 # ── Generic (RSS auto-discovery + fallback) ──────────────────────────
 
 
 async def _resolve_generic(url: str) -> ResolvedSource:
     """Try RSS auto-discovery on any URL; fall back to leaderboard type."""
+    if not _is_safe_url(url):
+        raise ValueError("Blocked URL: not allowed to fetch internal/private addresses")
     # Only read first 64KB — RSS/title tags are always in <head>
     max_bytes = 65536
     async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
         try:
-            async with client.stream("GET", url, headers={"User-Agent": _BROWSER_UA}) as resp:
+            async with client.stream("GET", url, headers={"User-Agent": BROWSER_UA}) as resp:
                 resp.raise_for_status()
                 chunks: list[bytes] = []
                 total = 0
@@ -325,7 +238,7 @@ async def _resolve_generic(url: str) -> ResolvedSource:
                     feed_url = f"{parsed.scheme}://{parsed.netloc}{feed_url}"
 
                 # Extract page title for the name
-                name = _extract_title(text) or urlparse(url).hostname or url
+                name = extract_title(text) or urlparse(url).hostname or url
 
                 return ResolvedSource(
                     source_type="rss",
@@ -333,23 +246,8 @@ async def _resolve_generic(url: str) -> ResolvedSource:
                 )
 
         # No RSS found — offer as a leaderboard/event_links entry
-        name = _extract_title(text) or urlparse(url).hostname or url
+        name = extract_title(text) or urlparse(url).hostname or url
         return ResolvedSource(
             source_type="rss",
             fields={"url": url, "name": name},
         )
-
-
-def _extract_title(html: str) -> str:
-    """Extract <title> or og:title from HTML."""
-    m = re.search(
-        r'<meta\s+property="og:title"\s+content="([^"]+)"',
-        html,
-        re.IGNORECASE,
-    )
-    if m:
-        return m.group(1)
-    m = re.search(r"<title[^>]*>([^<]+)</title>", html, re.IGNORECASE)
-    if m:
-        return m.group(1).strip()
-    return ""
