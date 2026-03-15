@@ -22,42 +22,10 @@
     <script src="nav.js"></script>
 
     <main class="max-w-5xl mx-auto px-5 py-5">
-        <!-- State 1: No Supabase configured (static placeholder) -->
-        <div id="state-no-supabase" class="hidden">
-            <h1 class="text-xl font-bold text-gray-900 dark:text-white mb-6">Source Management</h1>
-            <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-5 mb-6">
-                <h2 class="text-base font-semibold text-blue-800 dark:text-blue-300 mb-2">Online customization coming soon</h2>
-                <p class="text-sm text-blue-700 dark:text-blue-400 leading-relaxed mb-3">
-                    User-specific feed customization (add/remove sources, personal scoring principles) will be available online in a future update.
-                </p>
-                <p class="text-sm text-blue-700 dark:text-blue-400 leading-relaxed">
-                    In the meantime, you can fully customize your feeds in <strong>local mode</strong> by cloning the project and following the setup instructions:
-                </p>
-            </div>
-            <div class="bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-800 rounded-lg p-5 mb-6">
-                <h2 class="text-base font-semibold text-gray-900 dark:text-white mb-3">Run locally</h2>
-                <ol class="list-decimal list-inside space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                    <li>Clone the repository:
-                        <code class="bg-gray-100 dark:bg-neutral-800 px-2 py-0.5 rounded text-xs ml-1">git clone https://github.com/YanCheng-go/ai-news-filter.git</code>
-                    </li>
-                    <li>Run the start script:
-                        <code class="bg-gray-100 dark:bg-neutral-800 px-2 py-0.5 rounded text-xs ml-1">cd ai-news-filter && ./start.sh</code>
-                    </li>
-                    <li>Open <code class="bg-gray-100 dark:bg-neutral-800 px-2 py-0.5 rounded text-xs">http://localhost:8000/admin</code> to manage sources</li>
-                </ol>
-            </div>
-            <div class="text-center">
-                <a href="https://github.com/YanCheng-go/ai-news-filter" target="_blank" rel="noopener"
-                   class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-sm font-medium hover:bg-gray-700 dark:hover:bg-gray-200 transition-colors">
-                    <svg class="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-                    View on GitHub
-                </a>
-            </div>
-        </div>
-
-        <!-- State 2: Logged out -->
+        <!-- State 1/2: Logged out (covers both no-supabase and has-supabase) -->
         <div id="state-login" class="hidden">
             <div class="max-w-sm mx-auto mt-12">
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6 text-center">Add, edit, and manage your feed sources. Sign in to get started.</p>
                 <h2 id="admin-auth-title" class="text-xl font-bold text-gray-900 dark:text-white mb-4">Sign in to manage sources</h2>
                 <form id="auth-form" onsubmit="return handleAuth(event)">
                     <input type="email" id="auth-email" placeholder="Email" required
@@ -209,9 +177,9 @@
     async function init() {
         try {
             var config = await getConfig();
-            if (!config) { showState('no-supabase'); return; }
+            if (!config) { showState('login'); return; }
             if (!config.supabase_url || !config.supabase_anon_key) {
-                showState('no-supabase');
+                showState('login');
                 return;
             }
             loadSchemaFromConfig(config);
@@ -229,7 +197,7 @@
             });
         } catch (e) {
             console.error('Admin init failed:', e);
-            showState('no-supabase');
+            showState('login');
         }
     }
 
