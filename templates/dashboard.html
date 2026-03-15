@@ -166,6 +166,6 @@
 {% endif %}
 <script>
 document.addEventListener('click', function() { var dd = document.getElementById('tag-dropdown'); if (dd) dd.classList.add('hidden'); });
-document.addEventListener('click', function(e) { var card = e.target.closest('[data-url]'); if (!card || e.target.closest('a')) return; window.open(card.dataset.url, '_blank'); });
+document.addEventListener('click', function(e) { var card = e.target.closest('[data-url]'); if (!card || e.target.closest('a')) return; var url = card.dataset.url; if (url && /^https?:\/\//.test(url)) window.open(url, '_blank'); });
 </script>
 {% endblock %}

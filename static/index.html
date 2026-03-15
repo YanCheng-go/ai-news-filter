@@ -370,7 +370,8 @@
     document.getElementById('items').addEventListener('click', function(e) {
         var card = e.target.closest('[data-url]');
         if (!card || e.target.closest('a')) return;
-        window.open(card.dataset.url, '_blank');
+        var url = card.dataset.url;
+        if (url && /^https?:\/\//.test(url)) window.open(url, '_blank');
     });
     function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text || ''; return div.innerHTML; }
     function escapeAttr(text) { return escapeHtml(text).replace(/'/g, '&#39;'); }
