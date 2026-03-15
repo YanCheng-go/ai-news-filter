@@ -44,13 +44,15 @@ _CHANNEL_ID_PATTERNS = [
 _BROWSER_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
 
 
-def _cors_headers() -> dict:
-    origin = os.environ.get("AINEWS_CORS_ORIGIN", "*")
-    return {
-        "Access-Control-Allow-Origin": origin,
+def _cors_headers(request_origin: str = "") -> dict:
+    allowed = os.environ.get("AINEWS_CORS_ORIGIN", "")
+    headers = {
         "Access-Control-Allow-Methods": "POST, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization",
     }
+    if allowed and request_origin == allowed:
+        headers["Access-Control-Allow-Origin"] = allowed
+    return headers
 
 
 def _verify_jwt(jwt: str) -> dict | None:
@@ -288,18 +290,27 @@ def _extract_title(html: str) -> str:
 
 
 def _resolve_generic(url: str) -> dict:
+    # Only read first 64KB — RSS/title tags are always in <head>
+    max_bytes = 65536
     try:
-        resp = httpx.get(
+        with httpx.stream(
+            "GET",
             url,
             headers={"User-Agent": _BROWSER_UA},
             timeout=10,
             follow_redirects=True,
-        )
-        resp.raise_for_status()
+        ) as resp:
+            resp.raise_for_status()
+            chunks = []
+            total = 0
+            for chunk in resp.iter_bytes():
+                chunks.append(chunk)
+                total += len(chunk)
+                if total >= max_bytes:
+                    break
+            text = b"".join(chunks).decode("utf-8", errors="replace")
     except Exception as exc:
-        raise ValueError(f"Could not fetch URL: {exc}") from exc
-
-    text = resp.text
+        raise ValueError("Could not fetch URL") from exc
     feed_match = re.search(
         r'<link[^>]+type="application/(?:rss|atom)\+xml"[^>]*>',
         text,
@@ -355,12 +366,14 @@ def _resolve(url: str) -> dict:
 class handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         self.send_response(204)
-        for k, v in _cors_headers().items():
+        origin = self.headers.get("Origin", "")
+        for k, v in _cors_headers(origin).items():
             self.send_header(k, v)
         self.end_headers()
 
     def do_POST(self):
-        cors = _cors_headers()
+        origin = self.headers.get("Origin", "")
+        cors = _cors_headers(origin)
 
         auth = self.headers.get("Authorization", "")
         if not auth.startswith("Bearer "):
@@ -392,8 +405,8 @@ class handler(BaseHTTPRequestHandler):
             return self._json(200, result, cors)
         except ValueError as e:
             return self._json(400, {"error": str(e)}, cors)
-        except Exception as e:
-            return self._json(500, {"error": str(e)}, cors)
+        except Exception:
+            return self._json(500, {"error": "Internal server error"}, cors)
 
     def _json(self, status, data, headers=None):
         self.send_response(status)

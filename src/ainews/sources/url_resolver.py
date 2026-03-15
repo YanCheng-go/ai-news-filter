@@ -292,14 +292,22 @@ def _resolve_rsshub(parsed: urlparse) -> ResolvedSource:
 
 async def _resolve_generic(url: str) -> ResolvedSource:
     """Try RSS auto-discovery on any URL; fall back to leaderboard type."""
+    # Only read first 64KB — RSS/title tags are always in <head>
+    max_bytes = 65536
     async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
         try:
-            resp = await client.get(url, headers={"User-Agent": _BROWSER_UA})
-            resp.raise_for_status()
+            async with client.stream("GET", url, headers={"User-Agent": _BROWSER_UA}) as resp:
+                resp.raise_for_status()
+                chunks: list[bytes] = []
+                total = 0
+                async for chunk in resp.aiter_bytes():
+                    chunks.append(chunk)
+                    total += len(chunk)
+                    if total >= max_bytes:
+                        break
+                text = b"".join(chunks).decode("utf-8", errors="replace")
         except Exception as exc:
-            raise ValueError(f"Could not fetch URL: {exc}") from exc
-
-        text = resp.text
+            raise ValueError("Could not fetch URL") from exc
 
         # Look for RSS/Atom feed links
         feed_match = re.search(
