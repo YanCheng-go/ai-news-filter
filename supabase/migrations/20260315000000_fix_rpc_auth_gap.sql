@@ -7,6 +7,24 @@
 -- The service_role is exempted because cloud_fetch_all_users() uses it to
 -- write items on behalf of each user.
 
+-- Helper: centralised auth guard used by all user-scoped RPCs.
+-- Raises if p_user_id is set but the caller is unauthenticated or mismatched.
+-- Service role is exempted so cloud_fetch_all_users() can write on behalf of users.
+CREATE OR REPLACE FUNCTION _require_user_auth(p_user_id UUID)
+RETURNS void AS $$
+BEGIN
+    IF p_user_id IS NOT NULL
+       AND current_setting('request.jwt.claim.role', true) != 'service_role' THEN
+        IF auth.uid() IS NULL THEN
+            RAISE EXCEPTION 'authentication required';
+        END IF;
+        IF auth.uid() != p_user_id THEN
+            RAISE EXCEPTION 'unauthorized: user_id mismatch';
+        END IF;
+    END IF;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- 1. upsert_item
 CREATE OR REPLACE FUNCTION upsert_item(
     p_id TEXT,
@@ -27,17 +45,7 @@ CREATE OR REPLACE FUNCTION upsert_item(
     p_user_id UUID DEFAULT NULL
 ) RETURNS void AS $$
 BEGIN
-    -- Require authentication when writing to a user's feed
-    -- Service role (cloud_fetch_all_users) may write on behalf of any user
-    IF p_user_id IS NOT NULL
-       AND current_setting('request.jwt.claim.role', true) != 'service_role' THEN
-        IF auth.uid() IS NULL THEN
-            RAISE EXCEPTION 'authentication required';
-        END IF;
-        IF auth.uid() != p_user_id THEN
-            RAISE EXCEPTION 'unauthorized: user_id mismatch';
-        END IF;
-    END IF;
+    PERFORM _require_user_auth(p_user_id);
 
     INSERT INTO items (id, url, title, summary, content, source_name, source_type,
                        tags, author, published_at, fetched_at, score, score_reason,
@@ -60,16 +68,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE FUNCTION get_source_health(p_user_id UUID DEFAULT NULL)
 RETURNS TABLE(source_name TEXT, source_type TEXT, item_count BIGINT, last_fetched TEXT) AS $$
 BEGIN
-    -- Service role (cloud_fetch_all_users) may write on behalf of any user
-    IF p_user_id IS NOT NULL
-       AND current_setting('request.jwt.claim.role', true) != 'service_role' THEN
-        IF auth.uid() IS NULL THEN
-            RAISE EXCEPTION 'authentication required';
-        END IF;
-        IF auth.uid() != p_user_id THEN
-            RAISE EXCEPTION 'unauthorized: user_id mismatch';
-        END IF;
-    END IF;
+    PERFORM _require_user_auth(p_user_id);
 
     RETURN QUERY
     SELECT i.source_name, i.source_type, COUNT(*)::BIGINT as item_count,
@@ -85,16 +84,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE FUNCTION get_all_tags(p_user_id UUID DEFAULT NULL)
 RETURNS TABLE(tag TEXT) AS $$
 BEGIN
-    -- Service role (cloud_fetch_all_users) may write on behalf of any user
-    IF p_user_id IS NOT NULL
-       AND current_setting('request.jwt.claim.role', true) != 'service_role' THEN
-        IF auth.uid() IS NULL THEN
-            RAISE EXCEPTION 'authentication required';
-        END IF;
-        IF auth.uid() != p_user_id THEN
-            RAISE EXCEPTION 'unauthorized: user_id mismatch';
-        END IF;
-    END IF;
+    PERFORM _require_user_auth(p_user_id);
 
     RETURN QUERY
     SELECT DISTINCT jsonb_array_elements_text(items.tags) as tag
@@ -110,16 +100,7 @@ RETURNS integer AS $$
 DECLARE
     affected integer;
 BEGIN
-    -- Service role (cloud_fetch_all_users) may write on behalf of any user
-    IF p_user_id IS NOT NULL
-       AND current_setting('request.jwt.claim.role', true) != 'service_role' THEN
-        IF auth.uid() IS NULL THEN
-            RAISE EXCEPTION 'authentication required';
-        END IF;
-        IF auth.uid() != p_user_id THEN
-            RAISE EXCEPTION 'unauthorized: user_id mismatch';
-        END IF;
-    END IF;
+    PERFORM _require_user_auth(p_user_id);
 
     UPDATE items SET is_duplicate_of = (
         SELECT f.id FROM items f
@@ -151,16 +132,7 @@ CREATE OR REPLACE FUNCTION upsert_source_state(
     p_user_id UUID DEFAULT NULL
 ) RETURNS void AS $$
 BEGIN
-    -- Service role (cloud_fetch_all_users) may write on behalf of any user
-    IF p_user_id IS NOT NULL
-       AND current_setting('request.jwt.claim.role', true) != 'service_role' THEN
-        IF auth.uid() IS NULL THEN
-            RAISE EXCEPTION 'authentication required';
-        END IF;
-        IF auth.uid() != p_user_id THEN
-            RAISE EXCEPTION 'unauthorized: user_id mismatch';
-        END IF;
-    END IF;
+    PERFORM _require_user_auth(p_user_id);
 
     IF p_user_id IS NULL THEN
         INSERT INTO source_state (source_key, last_fetched_at, user_id)
