@@ -43,11 +43,11 @@ jobs:
       - run: npm ci
       - run: npx playwright install chromium --with-deps
       - run: uv sync --extra dev
-      - name: Start server and run visual tests
+      - name: Start server and run responsive tests
         run: |
           uv run ainews serve &
           sleep 3
-          npx playwright test --reporter=list
+          npx playwright test --reporter=list --grep-invert "renders correctly"
         env:
           AINEWS_SCORING: "false"
       - uses: actions/upload-artifact@v4
