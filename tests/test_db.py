@@ -138,6 +138,17 @@ class TestGetExistingIds:
         result = db.get_existing_ids(query_ids)
         assert result == {"x"}
 
+    def test_901_ids_triggers_second_chunk(self, db):
+        """901 is the first count that splits into two chunks (900 + 1)."""
+        db.upsert_item(_item(id="first-chunk", url="https://first.com"))
+        db.upsert_item(_item(id="second-chunk", url="https://second.com"))
+        db.commit()
+        # "first-chunk" lands in chunk 1 (indices 0-899), "second-chunk" in chunk 2 (index 900)
+        query_ids = ["first-chunk"] + [f"pad-{i}" for i in range(899)] + ["second-chunk"]
+        assert len(query_ids) == 901
+        result = db.get_existing_ids(query_ids)
+        assert result == {"first-chunk", "second-chunk"}
+
 
 # --- Tag sync ---
 
