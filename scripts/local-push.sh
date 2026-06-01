@@ -84,7 +84,14 @@ run_once() {
         git remote set-url origin "${REMOTE_URL/https:\/\/github.com/https://YanCheng-go@github.com}"
     fi
 
-    # Ensure we're on main so the push targets the correct branch.
+    # Defensive: clear any leftover rebase state from a prior interrupted run,
+    # otherwise every subsequent git operation aborts with "already a
+    # rebase-merge directory".
+    git rebase --abort 2>/dev/null || true
+
+    # Ensure we're on main so the push targets the correct branch. Stash the
+    # working tree (e.g. uv.lock churn from a different uv version) once, then
+    # restore it when we switch back. Single stash only — no nested stashing.
     ORIGINAL_BRANCH=$(git rev-parse --abbrev-ref HEAD)
     DID_STASH=false
     if [[ "$ORIGINAL_BRANCH" != "main" ]]; then
@@ -107,21 +114,14 @@ run_once() {
     }
     trap restore_branch RETURN
 
-    # Stash any unstaged changes (e.g. uv.lock) so pull --rebase can proceed.
-    PULL_STASH=false
-    if ! git diff --quiet 2>/dev/null; then
-        git stash push -m "local-push-pull" --quiet
-        PULL_STASH=true
-    fi
-
-    # Pull latest data.json from remote before export so the merge step in
-    # export.py can preserve cloud-fetched items that aren't in the local DB.
-    log "==> Pulling latest data.json from remote..."
-    git pull --rebase origin main 2>&1 | tee -a "$LOG_FILE"
-
-    if [[ "$PULL_STASH" == true ]]; then
-        git stash pop --quiet 2>/dev/null || log "WARN: stash pop failed, changes remain in stash"
-    fi
+    # main is a pure publish target: data.json/config.json are machine-generated
+    # and never hand-edited here, so hard-reset to origin instead of rebasing.
+    # This is self-healing — a previously failed push (unpushed local commit)
+    # is discarded, since the data is regenerated from the local DB each run —
+    # and it eliminates the rebase conflicts / divergence that left main stuck.
+    log "==> Resetting main to latest origin/main..."
+    git fetch origin main --quiet
+    git reset --hard origin/main 2>&1 | tee -a "$LOG_FILE"
 
     log "==> Appending Twitter items (last ${HOURS}h) to static/data.json..."
     uv run ainews export --hours "$HOURS" --output static/data.json --source-type twitter 2>&1 | tee -a "$LOG_FILE"
